@@ -1,57 +1,29 @@
-Let's figure out how openMHZ works.
+## Umbrella
+This is a tool for monitoring the amount of encrypted radio chatter from local police departments and (optionally) publishing this info to twitter. It does not include any sort of scheduler.
 
-Recipes (Chrome debugger, with result of talkgroups api call as variable temp1)
+### Setup
+If you don't intend to tweet, the only thing you'll need is a recent version of node.
 
-#### All tags in all groups
-Object.keys(temp1.talkgroups)
-      .map((key) => temp1.talkgroups[key])
-      .map((talkGroup) => talkGroup.tag)
-      .reduce((collection, tag) => {
-        if (collection.indexOf(tag) === -1) {
-          collection.push(tag)
-        }
-        return collection
-      }, [])
+If you want to tweet, you'll need to make a twitter account, apply for developer access, and then generate and save consumer keys and access tokens. Then, populate a file named `secrets.json` with these fields:
+```json
+{
+  "consumer_key": "",
+  "consumer_secret": "",
+  "access_token_key": "",
+  "access_token_secret": ""
+}
+```
 
-Results:
-["fire-talk","fire-tac","fire dispatch","ems-tac","emergency ops","law talk","law dispatch","law tac","business","public works","security","utilities","multi-tac","schools","interop","transportation","ems dispatch","corrections","hospital","ems-talk"]
+### Using umbrella
+To run it once: `node umbrella.js`. This will not publish to twitter. You can add these flags to customize behavior:
+- `--tweet`: Publish to twitter
+- `--debug`: Output debug info
 
-#### All groups with (tac or encrypt) and SPD in their short names
-Object.keys(temp1.talkgroups).map((key) => temp1.talkgroups[key]).map((group) => `${group.num}: ${group.alpha}`).reduce((collection, talkGroup) => { if(collection.indexOf(talkGroup) === -1) collection.push(talkGroup); return collection; }, []).filter((talkGroup) => talkGroup.includes("Tac") || talkGroup.includes("tac") || talkGroup.includes("Encrypt") || talkGroup.includes("encrypt")).filter((talkGroup) => talkGroup.includes("SPD"))
+#### Running on a schedule
+Add a cron job to a machine that'll be up often. I recommend something like this, which will tweet and print debug logs to `/cron-log.log`: `0,15,30,45 * * * * /absolute/path/to/node /absolute/path/to/umbrella.js --tweet --debug > /cron-log.log 2>&1`
 
-10 results for this filter, all look correct visually
-
-#### All groups with group "seattle police" and tag "law tac"
-Object.keys(temp1.talkgroups).map((key) => temp1.talkgroups[key])
-      .filter((talkGroup) => talkGroup.group === "seattle police")
-      .filter((talkGroup) => talkGroup.tag === "law tac")
-
-32 results, including training, narcotics, hostage negotiator, TMobile field events, etc. Interesting!
-
-#### All group numbers for groups with group "seattle police" and tag "law tac"
-Object.keys(temp1.talkgroups).map((key) => temp1.talkgroups[key])
-      .filter((talkGroup) => talkGroup.group === "seattle police")
-      .filter((talkGroup) => talkGroup.tag === "law tac")
-      .map((talkGroup) => talkGroup.num)
-
-#### "Get talk groups"
-https://api.openmhz.com/kcers1b/talkgroups
-
-#### "Get calls" by filter
-https://api.openmhz.com/kcers1b/calls?filter-type=group&filter-code=5ee350e04983d0002586456f
-https://api.openmhz.com/kcers1b/calls/older?time=1609515932000&filter-type=group&filter-code=5ee350e04983d0002586456f
-
-#### "Get calls" by talkgroup name
-https://api.openmhz.com/kcers1b/calls?filter-type=talkgroup&filter-code=1616%2C1680%2C1744
-
-#### Plan
-Quick testing shows I can fit 32 spark segments per line on mobile. Let's do 15 minutes per segment, for a total of 8 hours of "coverage". Each segment costs 2 "twitter characters".
-
-#### Example tweet
-All segments are 15 minute intervals.
-
-Frequency (min: 0, max: 4):
-▁▃▄▇▄▃▄█▁▃▄▇▄▃▄█▁▃▄▇▄▃▄█▄▃▄█
-
-Longest scan, seconds (min: 15, max: 287):
-▁▃▄▇▄▃▄█▁▃▄▇▄▃▄█▁▃▄▇▄▃▄█▄▃▄█
+### Upcoming features
+- Generalizable for different jurisdictions
+- Graphs as images, not ascii sparklines
+- Better metrics
+- Alarming
