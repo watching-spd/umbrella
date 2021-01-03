@@ -1,7 +1,14 @@
 const fetch = require('node-fetch')
 const sparkly = require('sparkly')
+const defaults = {
+  // enable for verbose output
+  debug: false,
+  // enable to tweet the result instead of just logging it to stdout
+  tweet: false
+}
+const cliArgs = require('minimist')(process.argv.slice(2), defaults)
 
-const debug = true
+const debug = cliArgs.debug
 const rangeSize = 8*60*60*1000
 const rangeEnd = Date.now()
 const rangeStart = (new Date(rangeEnd - rangeSize)).getTime()
@@ -82,11 +89,15 @@ function buildTweetBodyFromCalls(calls) {
   let tweetBody = 'Each segment is a 15 minute interval.\n\n'
   tweetBody += `${buildFrequencySparkline(calls)}\n\n`
   tweetBody += `${buildDurationSparkline(calls)}\n\n`
-  tweetBody += '#ProtestCommsSeattle'
+  // tweetBody += '#ProtestCommsSeattle'
   return tweetBody
 }
 
-function sendTweet() {
+async function sendTweet(body) {
+  const Twitter = require('twitter')
+  const secrets = require('./secrets.json')
+  const client = new Twitter(secrets)
+  return client.post('statuses/update', { status: body })
 }
 
 function dateStringToUnixTime(dateString) {
@@ -97,9 +108,24 @@ async function main() {
   const talkGroups = await getTalkGroups()
   const encryptedTalkGroups = determineEncryptedTalkGroups(talkGroups)
   const calls = await getCallsForTalkGroups(encryptedTalkGroups)
-  if (debug) console.log(calls.map((call) => `${call.time} (${call._id}) [${call.len}]`).join('\n'))
+  if (debug) {
+    const lineItems = calls.map((call) => {
+      let lineItem = ''
+      lineItem += `${call.time} `
+      lineItem += `${call._id} `
+      lineItem += `[${call.len}] `
+      lineItem += `talkgroup ${talkGroups[call.talkgroupNum].description} ${call.talkgroupNum}`
+      return lineItem
+    })
+    console.log(lineItems.join('\n'))
+  }
   const body = buildTweetBodyFromCalls(calls)
   if (debug) console.log(body)
+  if (cliArgs.tweet) {
+    if (debug) console.log('Submitting tweet')
+    const response = await sendTweet(body)
+    if (debug) console.log('Submitted tweet', response)
+  }
 }
 
 main()
