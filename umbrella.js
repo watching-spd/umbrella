@@ -15,8 +15,8 @@ const rangeEnd = Date.now()
 const rangeStart = (new Date(rangeEnd - rangeSize)).getTime()
 const binCount = 32
 
-// in: Array<talkGroup>, out: Promise<Array<call>>
 // this is recursive; calls is an accumulator
+// in: nothing (all args optional and used only for recursing), out: Promise<Array<call>>
 async function getEncryptedCalls(startTime, calls) {
   if (!startTime) startTime = rangeStart
   if (!calls) calls = []
