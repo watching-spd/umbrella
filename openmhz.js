@@ -3,6 +3,7 @@ const sparkly = require('sparkly')
 const defaults = {
   // enable for verbose output
   debug: false,
+
   // enable to tweet the result instead of just logging it to stdout
   tweet: false
 }
@@ -14,36 +15,22 @@ const rangeEnd = Date.now()
 const rangeStart = (new Date(rangeEnd - rangeSize)).getTime()
 const binCount = 32
 
-// in: nothing, out: Promise<Set<talkGroup>>
-function getTalkGroups() {
-  const url = 'https://api.openmhz.com/kcers1b/talkgroups'
-  return fetch(url).then((res) => res.json()).then((json) => json.talkgroups)
-}
-
-// in: Set<talkGroup>, out: filtered Array<talkGroup>
-function determineEncryptedTalkGroups(talkGroups) {
-  return Object.keys(talkGroups).map((key) => talkGroups[key])
-                   .filter((talkGroup) => talkGroup.group === "seattle police")
-                   .filter((talkGroup) => talkGroup.tag === "law tac")
-                   .map((talkGroup) => talkGroup.num)
-}
-
 // in: Array<talkGroup>, out: Promise<Array<call>>
 // this is recursive; calls is an accumulator
-async function getCallsForTalkGroups(talkGroups, startTime, calls) {
-  if (!calls) calls = []
+async function getEncryptedCalls(startTime, calls) {
   if (!startTime) startTime = rangeStart
+  if (!calls) calls = []
   if (debug) console.log(startTime)
 
-  const filter = talkGroups.join('%2C')
-  const url = `https://api.openmhz.com/kcers1b/calls/newer?time=${startTime}&filter-type=talkgroup&filter-code=${filter}`
+  // the filter-code (5efd78...) filters for SPD encrypted
+  const url = `https://api.openmhz.com/kcers1b/calls/newer?time=${startTime}&filter-type=group&filter-code=5efd784760e5840025aebad8`
 
   console.log('Fetching', url)
   const theseCalls = await fetch(url).then((res) => res.json()).then((json) => json.calls)
   if (theseCalls.length === 50) {
     if (debug) console.log('theseCalls[0].time', dateStringToUnixTime(theseCalls[0].time), theseCalls[0]._id)
     if (debug) console.log('theseCalls[49].time', dateStringToUnixTime(theseCalls[49].time), theseCalls[49]._id)
-    return getCallsForTalkGroups(talkGroups, dateStringToUnixTime(theseCalls[49].time), [...calls, ...theseCalls])
+    return getEncryptedCalls(dateStringToUnixTime(theseCalls[49].time), [...calls, ...theseCalls])
   } else {
     return [...calls, ...theseCalls]
   }
@@ -55,9 +42,6 @@ function bin(calls) {
     const binStart = rangeStart + bins.length * rangeSize / binCount
     const binEnd = rangeStart + (bins.length + 1) * rangeSize / binCount
     const matchingCalls = calls.filter((call) => dateStringToUnixTime(call.time) >= binStart && dateStringToUnixTime(call.time) < binEnd)
-    // console.log('bin start', binStart)
-    // console.log('bin end', binEnd)
-    // console.log('matching calls', matchingCalls)
     bins.push(matchingCalls)
   }
 
@@ -105,16 +89,15 @@ function dateStringToUnixTime(dateString) {
 }
 
 async function main() {
-  const talkGroups = await getTalkGroups()
-  const encryptedTalkGroups = determineEncryptedTalkGroups(talkGroups)
-  const calls = await getCallsForTalkGroups(encryptedTalkGroups)
+  const calls = await getEncryptedCalls()
   if (debug) {
     const lineItems = calls.map((call) => {
       let lineItem = ''
       lineItem += `${call.time} `
       lineItem += `${call._id} `
       lineItem += `[${call.len}] `
-      lineItem += `talkgroup ${talkGroups[call.talkgroupNum].description} ${call.talkgroupNum}`
+      // lineItem += `talkgroup ${talkGroups[call.talkgroupNum].description} ${call.talkgroupNum}`
+      lineItem += `talkgroup ${call.talkgroupNum}`
       return lineItem
     })
     console.log(lineItems.join('\n'))
