@@ -22,6 +22,9 @@ To run it once: `node umbrella.js`. This will not publish to twitter. You can ad
 #### Running on a schedule
 Add a cron job to a machine that'll be up often. I recommend something like this, which will tweet and print debug logs to `/cron-log.log`: `0,15,30,45 * * * * /absolute/path/to/node /absolute/path/to/umbrella.js --tweet --debug > /cron-log.log 2>&1`
 
+### Docker
+The docker container can be built using `docker build -t umbrella .`. Be sure to populate the values in the `secrets.json` file first, then run the container with `docker run --rm umbrella`.
+
 ### Upcoming features
 - Generalizable for different jurisdictions
 - Graphs as images, not ascii sparklines
