@@ -14,6 +14,7 @@ const rangeSize = 8*60*60*1000
 const rangeEnd = Date.now()
 const rangeStart = (new Date(rangeEnd - rangeSize)).getTime()
 const binCount = 32
+const hashtag = '#SeattleEncryptedComms'
 
 // this is recursive; calls is an accumulator
 // in: nothing (all args optional and used only for recursing), out: Promise<Array<call>>
@@ -73,7 +74,7 @@ function buildTweetBodyFromCalls(calls) {
   let tweetBody = 'Each segment is a 15 minute interval.\n\n'
   tweetBody += `${buildFrequencySparkline(calls)}\n\n`
   tweetBody += `${buildDurationSparkline(calls)}\n\n`
-  // tweetBody += '#ProtestCommsSeattle'
+  tweetBody += hashtag
   return tweetBody
 }
 
@@ -101,6 +102,10 @@ async function main() {
       return lineItem
     })
     console.log(lineItems.join('\n'))
+  }
+  if (!calls.length) {
+    if (debug) console.log("No encrypted calls for this period")
+    return
   }
   const body = buildTweetBodyFromCalls(calls)
   if (debug) console.log(body)
